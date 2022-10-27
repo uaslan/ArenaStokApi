@@ -17,4 +17,3 @@ web3
 pika
 python-dotenv
 brotli
-bs4

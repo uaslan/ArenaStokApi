@@ -1,0 +1,47 @@
+https://nesatilir-nft-api-ztfbb.ondigitalocean.app/api/asset
+
+{
+    "asset":{
+        "user_data":{
+            "username":"wqweqw",
+            "address":"3131313asxasxad12312313xasxsaxddd"},
+        "traits":[
+            {
+          "type": "Color",
+          "value": "Dark Brown",
+          "total_count": 1420
+          
+        },
+        {
+          "type": "Meka Type",
+          "value": "OG Meka",
+          "total_count": 4316
+        },
+        {
+          "type": "Jaws",
+          "value": "OG Trooper S1",
+          "total_count": 1491
+        }],
+        "collection_slug" :"anonymice",
+        "opensea_id":3131,
+        "token_id":3131,
+        "image_url":"2323232.fdsfsfs",
+        "image_original_url":"asdasdad.sadsa",
+        "name":"sadada",
+        "permalink":"sadasda.com",
+        "token_metadata":"sadasda",
+        "sell_create_date":"2021-10-17T20:18:40.546792",
+        "sell_closing_date":"2021-10-17T20:18:40.546792",
+        "sell_order_hash":"skdmaskdlmxasx",
+        "sell_current_price":313131313,
+        "sell_quantity":23232,
+        "last_sale_total_price":2323232,
+        "last_sale_created_date":"2021-10-17T20:18:40.546792",
+        "last_sale_quantity":23232,
+        "top_bid":232323,
+        "listing_date":"2021-10-17T20:18:40.546792",
+        "is_presale":false,
+        "transfer_fee":3131,
+        "total_rarity":2323232
+    }
+}
