@@ -60,34 +60,14 @@ class Stock(APIView):
         return JsonResponse({'products': stocks, 'productsCount': int(len(query_response))}, safe=False)
 
 
-# @api_view(['GET'])
-# def getCollectionObj(request):
-#     if request.method == 'GET':
-#         password = request.query_params.get("password")
-#         symbol = request.query_params.get("symbol")
-        
-#         if password != "zCpdCWUf":
-#             return Response(status=status.HTTP_400_BAD_REQUEST)
+@api_view(['GET'])
+def replace_stocks(request):
+    if request.method == 'POST':
+        payload = request.data
+        payload = dict(payload)
 
-#         r1 = redis.Redis(host='127.0.0.1', port=6379, db=1,charset="utf-8", decode_responses=True)
-#         redis_collection_obj = r1.hgetall(symbol)
-#         if len(redis_collection_obj)>0:
-#             response_data = {
-#                 "collection_details": redis_collection_obj
-#             }
-#             return Response(response_data, status=status.HTTP_200_OK)
-#         else:
-#             return Response({'error':True,'message':'Collection Not Found'}, status=status.HTTP_400_BAD_REQUEST)
-
-def pay_round(pay):
-    try:
-        if float(pay)>99.9:
-            return round(float(pay),0)
-        elif float(pay)>9.99:
-            return round(float(pay),1)
-        elif float(pay)>0.999:
-            return round(float(pay),2)
-        else:
-            return round(float(pay),3)
-    except:
-        return round(float(pay),3)
+        json_data = payload['json_data']
+        response_data = {
+            "collection_details": 'redis_collection_obj'
+        }
+        return Response(response_data, status=status.HTTP_200_OK)

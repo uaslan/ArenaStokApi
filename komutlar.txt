@@ -3,7 +3,7 @@
         virtualenv env         (1kere)
         .\env\Scripts\activate    (source env/bin/activate)
 
-2-) pip install -r .\requirements.txt
+2-) pip install -r requirements.txt
 
 3-) projeyi ayaga kaldirmak icin ; python manage.py runserver
     // test : http://127.0.0.1:8000/api/collection
