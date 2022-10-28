@@ -35,7 +35,9 @@ class Stock(APIView):
             inner join ag_product_parent spp on spp.id=t.product_id
             inner join ag_products sp on sp.parent_id=spp.id
             inner join ag_marketplaces sm on sm.id=sp.marketplace_id
-            order by spp.parent_sku;
+            where sp.marketplace_id=2
+            order by spp.parent_sku
+            LIMIT 100;
         """
         cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
         cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
