@@ -137,3 +137,39 @@ def replace_stocks(request):
                     "success": False
                 }
         return Response(response_data, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+def add_stocks(request):
+    if request.method == 'POST':
+        r1Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, decode_responses=True)
+        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8")
+        payload = request.data
+
+        product_list=[]
+        error=0
+        for item in payload:
+            try:
+                parent_sku=None
+                parent_sku=f"{item['sku']}"
+                if parent_sku!=None:
+                    product_maps_id=r1.get(parent_sku)
+                    stock_qty=item['quantity']
+                    if stock_qty!=None and stock_qty!='':
+                        product_list.append({'product_id':product_maps_id,'total_qty':stock_qty,'avaliable_qty':stock_qty,'reserved_qty':stock_qty})
+                else:
+                    error+=1
+            except Exception as for_error:
+                pass
+
+        if len(product_list)>0:
+            process_type='ekle'
+            try:
+                db_process(product_list,process_type)
+                response_data = {
+                    "success": True
+                }
+            except:
+                response_data = {
+                    "success": False
+                }
+        return Response(response_data, status=status.HTTP_200_OK)
