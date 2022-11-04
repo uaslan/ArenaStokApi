@@ -22,6 +22,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('authentication.urls', namespace='authentication')),
     path('api/', include('stock.urls', namespace='stock')),
+    path('api/', include('orders.urls', namespace='orders')),
 ]+ static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 

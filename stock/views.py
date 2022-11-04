@@ -28,14 +28,14 @@ class Stock(APIView):
 
         query = """
             with t as(
-                select id,updated_at,product_id,total_qty from ag_stock --where product_id=630
+                select * from ag_product_parent
             )
-            select spp.id parent_id,t.updated_at,spp.parent_sku,sm.symbol,t.total_qty,sp.sku,sp.second_sku,sp.barcode
+            select t.parent_sku,st.total_qty
             from t
-            inner join ag_product_parent spp on spp.id=t.product_id
-            inner join ag_products sp on sp.parent_id=spp.id
-            inner join ag_marketplaces sm on sm.id=sp.marketplace_id
-            order by spp.parent_sku;
+            inner join ag_products sp on sp.parent_id=t.id
+            inner join ag_stock st on st.product_id=t.id
+            group by t.parent_sku,st.total_qty
+            order by t.parent_sku;
         """
         cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
         cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -48,12 +48,10 @@ class Stock(APIView):
         for item in query_response:
             row = {
                 'parent_sku': item['parent_sku'],
-                'barcode': item['barcode'],
-                'sku': item['sku'],
-                'second_sku': item['second_sku'],
+                'name': str(item['parent_sku']).replace('_main','').replace('_',' '),
                 'total_qty': item['total_qty']
             }
-            stocks.append(item)
+            stocks.append(row)
         
         return JsonResponse({'products': stocks, 'productsCount': int(len(query_response))}, safe=False)
 

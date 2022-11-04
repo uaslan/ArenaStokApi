@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     # apps
     'authentication',
     'stock',
+    'orders',
 ]
 
 MIDDLEWARE = [
