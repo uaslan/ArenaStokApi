@@ -113,6 +113,18 @@ def db_product_order(product_list):
             cursor.execute(bulkLogsSql)
             cnxn.commit()
 
+            bulkUpdateStockSql=""";
+                UPDATE ag_stock AS ss
+                SET
+                total_qty =ss.total_qty - si.total_qty,
+                avaliable_qty =ss.avaliable_qty - si.avaliable_qty,
+                reserved_qty =ss.reserved_qty - si.reserved_qty
+                FROM tmp_stock_initial si
+                WHERE ss.product_id = si.product_id;
+            """
+            cursor.execute(bulkUpdateStockSql)
+            cnxn.commit()
+
         cursor.close()
         cnxn.close()
     except Exception as error:
@@ -162,6 +174,8 @@ def add_orders(request):
                         order_product_list.append(item)
                     else:
                         print(f"{item['marketplace']}_{item['parent_sku']}")
+                else:
+                    print(f"{item['order_number']}_{item['parent_sku']} - Mevcut")
             except Exception as for_error:
                 pass
         
@@ -175,6 +189,7 @@ def add_orders(request):
                 response_data = {
                     "success": True,
                 }
+                r1.set('update_check','true')
             except:
                 response_data = {
                     "success": False

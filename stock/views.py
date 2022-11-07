@@ -65,12 +65,13 @@ def db_process(product_list,type):
         TRUNCATE TABLE tmp_stock_initial;
         INSERT INTO tmp_stock_initial (product_id,total_qty,avaliable_qty,reserved_qty) VALUES """
     bulkLogsSql="INSERT INTO ag_stock_logs (created_at,product_id,quantity,description,process_type) VALUES "
-    initial_desc=f"{datetime.datetime.now().strftime('%d-%m-%Y %H:%M:%S')} - Stok Girisi"
+    initial_desc=f"{datetime.datetime.now().strftime('%d-%m-%Y %H:%M:%S')} - Stok Girisi - {type}"
     for item in product_list:
         bulkSql+=f"({item['product_id']},{item['total_qty']},{item['avaliable_qty']},{item['reserved_qty']}),"
         bulkLogsSql+=f"(now(),{item['product_id']},{item['total_qty']},'{initial_desc}','initial-api'),"
     bulkSql=bulkSql[:-1]
     bulkLogsSql=bulkLogsSql[:-1]
+    
     cursor.execute(bulkSql)
     cursor.execute(bulkLogsSql)
     cnxn.commit()
@@ -130,6 +131,7 @@ def replace_stocks(request):
                 response_data = {
                     "success": True
                 }
+                r1.set('update_check','true')
             except:
                 response_data = {
                     "success": False
@@ -166,6 +168,7 @@ def add_stocks(request):
                 response_data = {
                     "success": True
                 }
+                r1.set('update_check','true')
             except:
                 response_data = {
                     "success": False
