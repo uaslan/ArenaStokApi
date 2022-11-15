@@ -174,3 +174,43 @@ def add_stocks(request):
                     "success": False
                 }
         return Response(response_data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+def stock_logs(request):
+    parent_sku = request.query_params.get('sku',None)
+    if parent_sku!=None:
+        logs = []
+        r1Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, decode_responses=True)
+        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8")
+        product_maps_id=r1.get(parent_sku)
+        if product_maps_id!=None:
+            query = f"""
+                select created_at,quantity,description,process_type,product_id from ag_stock_logs 
+                where product_id={product_maps_id}
+                order by created_at desc;
+            """
+            cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
+            cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute(query)
+            query_response = cursor.fetchall()
+
+            cursor.execute(f"select * from ag_stock where product_id={product_maps_id}")
+            sku_stock = cursor.fetchone()
+            
+            cursor.close()
+            cnxn.close()
+        
+            total_qty=0
+            for item in query_response:
+                row = {
+                    'created_at':str(item['created_at']).split('.')[0],
+                    'parent_sku': parent_sku,
+                    'qty': item['quantity'],
+                    'description':item['description'],
+                    'type':item['process_type']
+                }
+                logs.append(row)
+                total_qty+=int(item['quantity'])
+        return JsonResponse({'logs': logs,'sum':total_qty,'total_stock':sku_stock['total_qty']}, safe=False)
+    else:
+        return Response({"error":"Sku Bulunamadi"})
