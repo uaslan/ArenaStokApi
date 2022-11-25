@@ -11,7 +11,7 @@ from django.http import JsonResponse
 from django.core import serializers
 from django.db.models import Q
 
-import datetime
+from datetime import datetime
 import os
 import psycopg2
 import json
@@ -196,3 +196,175 @@ def add_orders(request):
                 }
         return Response(response_data, status=status.HTTP_200_OK)
 
+@api_view(['GET'])
+def report(request):
+    if request.method == 'GET':
+        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8")
+        r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8")
+        query = """
+            with t as(
+                select order_number,order_status,order_date,order_marketplace_id from ag_orders where order_date>now()-INTERVAL '30 day'
+            )
+            select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date
+            from t
+            inner join ag_order_products op on op.order_number=t.order_number
+            inner join ag_product_parent pp on pp.id=op.product_id
+            inner join ag_marketplaces mp on mp.id=t.order_marketplace_id
+            order by t.order_date desc
+        """
+        cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
+        cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute(query)
+        query_response = cursor.fetchall()
+        cursor.close()
+        cnxn.close()
+        report_list={}
+        report_list['data']=[]
+        report_list['visible']=[]
+        report_list['unvisible']=[]
+        for item in query_response:
+            try:
+                product=str(item['parent_sku']).replace('_main','').split('_')
+                if len(product)>2:
+                    model=product[0]
+                    color=product[1]
+                    size=product[2]
+                else:
+                    model='Shades'
+                    color=product[0]
+                    size=product[1]
+                
+                start_date_str=str(item['start_date']).replace('T',' ').split(' ')[0]
+                start_date=datetime.strptime(start_date_str,"%Y-%m-%d")
+
+                date_time_str=str(item['order_date']).replace('T',' ').split(' ')[0]
+                order_date=datetime.strptime(date_time_str,"%Y-%m-%d")
+
+                if order_date>=start_date:
+                    report_list['visible'].append(str(order_date.strftime("%Y-%m-%d")))
+                else:
+                    report_list['unvisible'].append(str(order_date.strftime("%Y-%m-%d")))
+                row = {
+                    'OrderNO': item['order_number'],
+                    'OrderStatus': item['order_status'],
+                    'SKU': str(item['parent_sku']).replace('_main',''),
+                    'Model':model,
+                    'Color':color,
+                    'Size':size,
+                    'OrderDate':str(item['order_date']).replace('T',' ').split(' ')[0],
+                    'OMonth':str(order_date.strftime("%b")),
+                    'OWeek':str(order_date.strftime("%W")),
+                    'ODay':str(order_date.strftime("%d")),
+                    'Marketplace':item['symbol'],
+                    'Quantity':item['order_product_qty']
+                    # 'RMonth':None,
+                    # 'RWeek':None,
+                    # 'RDay':None,
+                    # 'RReason':'',
+                    # 'RStatus':'',
+                    # 'RDate':'',
+                }
+                report_list['data'].append(row)
+            except Exception as error:
+                print(error)
+
+        report_list['visible']=set(report_list['visible'])
+        report_list['unvisible']=set(report_list['unvisible'])
+        return Response(report_list,status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+def velocity(request):
+    if request.method == 'GET':
+        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8")
+        r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8")
+        query = """
+            with f as(
+                with t as(
+                    select * from ag_product_parent --where parent_sku LIKE 'Basics_Cora%'
+                )
+                select t.id p_id,t.parent_sku,s.total_qty
+                from t
+                inner join ag_stock s on s.product_id=t.id
+            )
+            select f.parent_sku,f.total_qty,sum(op.order_product_qty) total_sales
+            from f
+            left join ag_order_products op ON op.product_id=f.p_id
+            left join ag_orders o on o.order_date>now() - INTERVAL '7 days' and o.order_status!='Cancelled' and o.order_number = op.order_number
+            GROUP BY f.parent_sku,f.total_qty
+            order by f.parent_sku asc
+        """
+        cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
+        cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute(query)
+        query_response = cursor.fetchall()
+        cursor.close()
+        cnxn.close()
+
+        temp_list={}
+        for item in query_response:
+            try:
+                keys=item['parent_sku'].replace('_main','').split('_')
+                if len(keys)>2:
+                    model=keys[0]
+                    color=keys[1]
+                    size=keys[2]
+                else:
+                    model='Shades'
+                    color=keys[0]
+                    size=keys[1]
+
+                if model not in temp_list:
+                    temp_list[model]={}
+                if color not in temp_list[model]:
+                    temp_list[model][color]={}
+
+                if size not in temp_list[model][color]:
+                    temp_list[model][color][size]={}
+                    temp_list[model][color][size]['7days']=0
+                    temp_list[model][color][size]['speed']= 0
+                    temp_list[model][color][size]['oos'] = 0
+                    temp_list[model][color][size]['order'] = 0
+                    temp_list[model][color][size]['production'] = 0
+                    temp_list[model][color][size]['stock'] = item['total_qty']
+                
+                try:
+                    if item['total_sales']!=None:
+                        doi=30
+                        temp_list[model][color][size]['7days']=item['total_sales']
+                        temp_list[model][color][size]['speed']=round(float(item['total_sales']/7),2)
+                        temp_list[model][color][size]['oos'] = int((item['total_qty'] / temp_list[model][color][size]['speed']))
+                        temp_list[model][color][size]['order'] = int((doi * temp_list[model][color][size]['speed']) - item['total_qty'])
+                        temp_list[model][color][size]['production'] = temp_list[model][color][size]['order']
+                except Exception as error:
+                    print(error)
+            except Exception as error:
+                print(error)
+        report_list={}
+        newSizeSort = ["XXS","XS", "S", "SM", "M", "L", "LXL", "XL", "XXL", "3XL",'ML','XLXXL','XSS']
+        for model,temp_item_model in temp_list.items():
+            for color,temp_item_color in temp_item_model.items():
+                for sort_size in newSizeSort:
+                    if model not in report_list:
+                        report_list[model]={}
+                    if color not in report_list[model]:
+                        report_list[model][color]={}
+                        report_list[model][color]['Total']={}
+                        report_list[model][color]['Total']['7days']=0
+                        report_list[model][color]['Total']['speed']= 0
+                        report_list[model][color]['Total']['oos'] = 0
+                        report_list[model][color]['Total']['order'] = 0
+                        report_list[model][color]['Total']['production'] = 0
+                        report_list[model][color]['Total']['stock'] = 0
+                    if sort_size in temp_list[model][color]:
+                        report_list[model][color][sort_size]=temp_item_model[color][sort_size]
+                        try:
+                            report_list[model][color]['Total']['7days'] += temp_item_model[color][sort_size]['7days']
+                            report_list[model][color]['Total']['speed'] += temp_item_model[color][sort_size]['speed']
+                            report_list[model][color]['Total']['oos'] += temp_item_model[color][sort_size]['oos']
+                            report_list[model][color]['Total']['order'] += temp_item_model[color][sort_size]['order']
+                            report_list[model][color]['Total']['production'] += temp_item_model[color][sort_size]['production']
+                            report_list[model][color]['Total']['stock'] += temp_item_model[color][sort_size]['stock']
+                        except:
+                            pass
+
+        return Response(report_list,status=status.HTTP_200_OK)
