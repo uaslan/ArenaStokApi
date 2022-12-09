@@ -113,17 +113,20 @@ def db_product_order(product_list):
             cursor.execute(bulkLogsSql)
             cnxn.commit()
 
-            bulkUpdateStockSql=""";
-                UPDATE ag_stock AS ss
-                SET
-                total_qty =ss.total_qty - si.total_qty,
-                avaliable_qty =ss.avaliable_qty - si.avaliable_qty,
-                reserved_qty =ss.reserved_qty - si.reserved_qty
-                FROM tmp_stock_initial si
-                WHERE ss.product_id = si.product_id;
-            """
-            cursor.execute(bulkUpdateStockSql)
-            cnxn.commit()
+            cursor.execute("select * from tmp_stock_initial")
+            update_rows=cursor.fetchall()
+            for row in update_rows:
+                update_sql=f"""
+                    UPDATE ag_stock AS ss
+                    SET
+                    updated_at=now(),
+                    total_qty =ss.total_qty - {row['total_qty']},
+                    avaliable_qty =ss.avaliable_qty - {row['avaliable_qty']},
+                    reserved_qty =ss.reserved_qty - {row['reserved_qty']}
+                    WHERE ss.product_id = {row['product_id']};
+                """
+                cursor.execute(update_sql)
+                cnxn.commit()
 
         cursor.close()
         cnxn.close()
@@ -142,6 +145,10 @@ def add_orders(request):
             try:
                 item['order_number']=str(item['order_number'])
                 order_number=r2.get(f"order_number_{item['order_number']}")
+                # pass_list=['8USXAUZY','8HMPLVGM','6UDK9TZV','5Q3UCL3I','3WUX28BY','1FXSW46J']
+                # if item['order_number'] in pass_list:
+                #     print('pass')
+                #     order_number=None
                 if order_number==None:
                     marketplace_id=r2.hget(f"marketplace_{item['marketplace']}",'id')
                     try:

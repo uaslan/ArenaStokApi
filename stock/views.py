@@ -75,28 +75,35 @@ def db_process(product_list,type):
     cursor.execute(bulkSql)
     cursor.execute(bulkLogsSql)
     cnxn.commit()
-    if type=='ekle':
-        bulkSql=""";
-            UPDATE ag_stock AS ss
-            SET
-            total_qty =ss.total_qty+si.total_qty,
-            avaliable_qty =ss.avaliable_qty+si.avaliable_qty,
-            reserved_qty =ss.reserved_qty+si.reserved_qty
-            FROM tmp_stock_initial si
-            WHERE ss.product_id = si.product_id;
-        """
-    else:
-        bulkSql=""";
-            UPDATE ag_stock AS ss
-            SET
-            total_qty = si.total_qty,
-            avaliable_qty = si.avaliable_qty,
-            reserved_qty = si.reserved_qty
-            FROM tmp_stock_initial si
-            WHERE ss.product_id = si.product_id;
-        """
-    cursor.execute(bulkSql)
-    cnxn.commit()
+
+    cursor.execute("select * from tmp_stock_initial")
+    update_rows=cursor.fetchall()
+    for row in update_rows:
+        if type=='ekle':
+            update_sql=f"""
+                UPDATE ag_stock AS ss
+                SET
+                updated_at=now(),
+                total_qty =ss.total_qty + {row['total_qty']},
+                avaliable_qty =ss.avaliable_qty + {row['avaliable_qty']},
+                reserved_qty =ss.reserved_qty + {row['reserved_qty']}
+                WHERE ss.product_id = {row['product_id']};
+            """
+            cursor.execute(update_sql)
+            cnxn.commit()
+        else:
+            update_sql=f"""
+                UPDATE ag_stock AS ss
+                SET
+                updated_at=now(),
+                total_qty = {row['total_qty']},
+                avaliable_qty = {row['avaliable_qty']},
+                reserved_qty = {row['reserved_qty']}
+                WHERE ss.product_id = {row['product_id']};
+            """
+            cursor.execute(update_sql)
+            cnxn.commit()
+
     cursor.close()
     cnxn.close()
     
