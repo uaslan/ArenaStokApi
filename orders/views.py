@@ -17,8 +17,8 @@ import psycopg2
 import json
 import redis
 
-r1Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, decode_responses=True)
-r2Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=2, decode_responses=True)
+r1Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, decode_responses=True,password=os.getenv('redis_password'))
+r2Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=2, decode_responses=True,password=os.getenv('redis_password'))
 
 class Order(APIView):
     # Allow any user (authenticated or not) to hit this endpoint.
@@ -59,7 +59,7 @@ class Order(APIView):
 
 
 def process_orders(process_list):
-    r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8")
+    r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8",password=os.getenv('redis_password'))
     cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
     cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
@@ -81,7 +81,7 @@ def process_orders(process_list):
 def db_product_order(product_list):
     try:
         resp=None
-        r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8")
+        r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8",password=os.getenv('redis_password'))
         cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
         cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -136,8 +136,8 @@ def db_product_order(product_list):
 @api_view(['POST'])
 def add_orders(request):
     if request.method == 'POST':
-        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8")
-        r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8")
+        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8",password=os.getenv('redis_password'))
+        r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8",password=os.getenv('redis_password'))
         payload = request.data
         order_list={}
         order_product_list=[]
@@ -206,8 +206,8 @@ def add_orders(request):
 @api_view(['GET'])
 def report(request):
     if request.method == 'GET':
-        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8")
-        r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8")
+        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8",password=os.getenv('redis_password'))
+        r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8",password=os.getenv('redis_password'))
         query = """
             with t as(
                 select order_number,order_status,order_date,order_marketplace_id from ag_orders where order_date>now()-INTERVAL '30 day'
@@ -282,8 +282,8 @@ def report(request):
 @api_view(['GET'])
 def velocity(request):
     if request.method == 'GET':
-        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8")
-        r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8")
+        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8",password=os.getenv('redis_password'))
+        r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8",password=os.getenv('redis_password'))
         query = """
             with f as(
                 with t as(

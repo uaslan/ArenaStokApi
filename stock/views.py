@@ -111,8 +111,8 @@ def db_process(product_list,type):
 @api_view(['POST'])
 def replace_stocks(request):
     if request.method == 'POST':
-        r1Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, decode_responses=True)
-        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8")
+        r1Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, decode_responses=True,password=os.getenv('redis_password'))
+        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8",password=os.getenv('redis_password'))
         payload = request.data
 
         product_list=[]
@@ -148,8 +148,8 @@ def replace_stocks(request):
 @api_view(['POST'])
 def add_stocks(request):
     if request.method == 'POST':
-        r1Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, decode_responses=True)
-        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8")
+        r1Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, decode_responses=True,password=os.getenv('redis_password'))
+        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8",password=os.getenv('redis_password'))
         payload = request.data
 
         product_list=[]
@@ -187,8 +187,8 @@ def stock_logs(request):
     parent_sku = request.query_params.get('sku',None)
     if parent_sku!=None:
         logs = []
-        r1Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, decode_responses=True)
-        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8")
+        r1Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, decode_responses=True,password=os.getenv('redis_password'))
+        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8",password=os.getenv('redis_password'))
         product_maps_id=r1.get(parent_sku)
         if product_maps_id!=None:
             query = f"""
