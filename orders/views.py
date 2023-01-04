@@ -16,6 +16,7 @@ import os
 import psycopg2
 import json
 import redis
+import math
 
 r1Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, decode_responses=True,password=os.getenv('redis_password'))
 r2Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=2, decode_responses=True,password=os.getenv('redis_password'))
@@ -279,6 +280,12 @@ def report(request):
         report_list['unvisible']=set(report_list['unvisible'])
         return Response(report_list,status=status.HTTP_200_OK)
 
+def ceiling(number, significance = 1):
+    try:
+        return math.ceil(number/significance) * significance
+    except:
+        return None
+
 @api_view(['GET'])
 def velocity(request):
     if request.method == 'GET':
@@ -286,19 +293,19 @@ def velocity(request):
         r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8",password=os.getenv('redis_password'))
         query = """
             with f as(
-                with t as(
-                    select * from ag_product_parent --where parent_sku LIKE 'Basics_Cora%'
-                )
-                select t.id p_id,t.parent_sku,s.total_qty
-                from t
-                inner join ag_stock s on s.product_id=t.id
-            )
-            select f.parent_sku,f.total_qty,sum(op.order_product_qty) total_sales
-            from f
-            left join ag_order_products op ON op.product_id=f.p_id
-            left join ag_orders o on o.order_date>now() - INTERVAL '7 days' and o.order_status!='Cancelled' and o.order_number = op.order_number
-            GROUP BY f.parent_sku,f.total_qty
-            order by f.parent_sku asc
+    with t as(
+        select * from ag_product_parent --where parent_sku LIKE 'Basics_Cora%'
+    )
+    select t.id p_id,t.parent_sku,s.total_qty
+    from t
+    inner join ag_stock s on s.product_id=t.id
+)
+select f.parent_sku,f.total_qty,sum(op.order_product_qty) total_sales,o.order_number
+from f
+left join ag_order_products op ON op.product_id=f.p_id
+left join ag_orders o on o.order_number = op.order_number and o.order_date>now() - INTERVAL '30 days' and o.order_status!='Cancelled'
+GROUP BY f.parent_sku,f.total_qty,o.order_number
+order by f.parent_sku asc
         """
         cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
         cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -335,12 +342,12 @@ def velocity(request):
                     temp_list[model][color][size]['stock'] = item['total_qty']
                 
                 try:
-                    if item['total_sales']!=None:
+                    if item['total_sales']!=None and item['order_number']!=None:
                         doi=30
-                        temp_list[model][color][size]['7days']=item['total_sales']
-                        temp_list[model][color][size]['speed']=round(float(item['total_sales']/7),2)
+                        temp_list[model][color][size]['7days']+=item['total_sales']
+                        temp_list[model][color][size]['speed']=round(float(temp_list[model][color][size]['7days']/30),2)
                         temp_list[model][color][size]['oos'] = int((item['total_qty'] / temp_list[model][color][size]['speed']))
-                        temp_list[model][color][size]['order'] = int((doi * temp_list[model][color][size]['speed']) - item['total_qty'])
+                        temp_list[model][color][size]['order'] = ceiling(int((doi * temp_list[model][color][size]['speed']) - item['total_qty']),50)
                         temp_list[model][color][size]['production'] = temp_list[model][color][size]['order']
                 except Exception as error:
                     print(error)
