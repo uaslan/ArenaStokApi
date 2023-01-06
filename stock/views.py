@@ -221,3 +221,31 @@ def stock_logs(request):
         return JsonResponse({'logs': logs,'sum':total_qty,'total_stock':sku_stock['total_qty']}, safe=False)
     else:
         return Response({"error":"Sku Bulunamadi"})
+
+@api_view(['GET'])
+def all_stock_logs(request):
+    logs = []
+    query = f"""
+        select app.parent_sku,sl.created_at,quantity,description,process_type,product_id 
+        from ag_stock_logs sl
+        left join ag_product_parent app on app.id=sl.product_id
+        where process_type='initial-api'
+        order by created_at desc;
+    """
+    cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
+    cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute(query)
+    query_response = cursor.fetchall()    
+    cursor.close()
+    cnxn.close()
+
+    for item in query_response:
+        row = {
+            'parent_sku': item['parent_sku'],
+            'created_at':str(item['created_at']).split('.')[0],
+            'qty': item['quantity'],
+            'description':item['description'],
+            'type':item['process_type']
+        }
+        logs.append(row)
+    return JsonResponse({'logs': logs}, safe=False)
