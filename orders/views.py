@@ -103,7 +103,7 @@ def db_product_order(product_list):
             stock_check=r2.get(f"stock_xls_{product['order_number']}_{product['line_id']}")
             if stock_check==None:
                 bulkSql+=f"({product['product_id']},{product['order_product_qty']},{product['order_product_qty']},{product['order_product_qty']}),"
-                bulkLogsSql+=f"(now(),{product['product_id']},-{product['order_product_qty']},'{product['order_number']}','order-xls'),"
+                bulkLogsSql+=f"(now(),{product['product_id']},-{product['order_product_qty']},'{product['order_number']}','{product['marketplace']}'),"
                 r2.set(f"stock_xls_{product['order_number']}_{product['line_id']}",'Order')
         bulkSql=bulkSql[:-1]
         bulkLogsSql=bulkLogsSql[:-1]
@@ -177,7 +177,8 @@ def add_orders(request):
                             'amount':float(item['amount']),
                             'discount':float(item['discount']),
                             'order_status':item['order_status'],
-                            'line_id':item['order_number']+"_"+product_maps_id
+                            'line_id':item['order_number']+"_"+product_maps_id,
+                            'marketplace':item['marketplace']
                         }
                         order_product_list.append(item)
                     else:

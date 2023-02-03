@@ -190,10 +190,36 @@ def stock_logs(request):
         r1Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, decode_responses=True,password=os.getenv('redis_password'))
         r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8",password=os.getenv('redis_password'))
         product_maps_id=r1.get(parent_sku)
+        
+        #region filters
+        start_date = request.query_params.get('start_date',None)
+        end_date = request.query_params.get('end_date',None)
+        process_type = request.query_params.get('process_type',None)
+        where_string=''
+        if process_type!=None and process_type!='':
+            if process_type!='all':
+                if process_type=='TYALL':
+                    where_string+=f"(process_type='order-ty' or process_type='order-ty-cancel' or process_type='TYINT') and "
+                else:
+                    where_string+=f"process_type = '{process_type}' and "
+            elif (start_date==None or start_date!='') and (end_date==None and end_date!=''):
+                where_string+=f"created_at > now() - INTERVAL '30 days' and "
+        if start_date!=None and start_date!='':
+            where_string+=f"created_at >= '{start_date}' and "
+        if end_date!=None and end_date!='':
+            where_string+=f"created_at <= '{end_date}' and "
+        
+        if where_string!='':
+            where_string+=f"product_id={product_maps_id} and "
+            where_string=where_string[:-5]
+        else:
+            where_string=f"product_id={product_maps_id}"
+        #endregion        
+
         if product_maps_id!=None:
             query = f"""
                 select created_at,quantity,description,process_type,product_id from ag_stock_logs 
-                where product_id={product_maps_id}
+                where {where_string}
                 order by created_at desc;
             """
             cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
@@ -225,12 +251,35 @@ def stock_logs(request):
 @api_view(['GET'])
 def all_stock_logs(request):
     logs = []
+    #region filters
+    start_date = request.query_params.get('start_date',None)
+    end_date = request.query_params.get('end_date',None)
+    process_type = request.query_params.get('process_type',None)
+    where_string=''
+    if process_type!=None and process_type!='':
+        if process_type!='all':
+            if process_type=='TYALL':
+                where_string+=f"(sl.process_type='order-ty' or sl.process_type='order-ty-cancel' or sl.process_type='TYINT') and "
+            else:
+                where_string+=f"sl.process_type = '{process_type}' and "
+        elif (start_date==None or start_date!='') and (end_date==None and end_date!=''):
+            where_string+=f"sl.created_at > now() - INTERVAL '30 days' and "
+    if start_date!=None and start_date!='':
+        where_string+=f"sl.created_at >= '{start_date}' and "
+    if end_date!=None and end_date!='':
+        where_string+=f"sl.created_at <= '{end_date}' and "
+    
+    if where_string!='':
+        where_string=where_string[:-5]
+    else:
+        where_string=f"sl.created_at > now() - INTERVAL '30 days' and sl.process_type = 'initial-api'"
+    #endregion
     query = f"""
         select app.parent_sku,sl.created_at,quantity,description,process_type,product_id 
         from ag_stock_logs sl
         left join ag_product_parent app on app.id=sl.product_id
-        where process_type='initial-api'
-        order by created_at desc;
+        where {where_string}
+        order by sl.created_at desc;
     """
     cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
     cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
