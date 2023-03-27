@@ -240,6 +240,9 @@ def report(request):
                     size=product[2]
                 else:
                     model='Shades'
+                    corap_list=["Uzun","Orta","Patik"]
+                    if product[0] in corap_list:
+                        model=product[0]
                     color=product[0]
                     size=product[1]
                 
