@@ -297,19 +297,19 @@ def velocity(request):
         r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8",password=os.getenv('redis_password'))
         query = """
             with f as(
-    with t as(
-        select * from ag_product_parent --where parent_sku LIKE 'Basics_Cora%'
-    )
-    select t.id p_id,t.parent_sku,s.total_qty
-    from t
-    inner join ag_stock s on s.product_id=t.id
-)
-select f.parent_sku,f.total_qty,sum(op.order_product_qty) total_sales,o.order_number
-from f
-left join ag_order_products op ON op.product_id=f.p_id
-left join ag_orders o on o.order_number = op.order_number and o.order_date>now() - INTERVAL '30 days' and o.order_status!='Cancelled'
-GROUP BY f.parent_sku,f.total_qty,o.order_number
-order by f.parent_sku asc
+                with t as(
+                    select * from ag_product_parent --where parent_sku LIKE 'Colors%'
+                )
+                select t.id p_id,t.parent_sku,s.total_qty
+                from t
+                inner join ag_stock s on s.product_id=t.id
+            )
+            select f.parent_sku,f.total_qty,sum(op.order_product_qty) total_sales,o.order_number
+            from f
+            left join ag_order_products op ON op.product_id=f.p_id
+            left join ag_orders o on o.order_number = op.order_number and o.order_date>now() - INTERVAL '30 days' and o.order_status!='Cancelled'
+            GROUP BY f.parent_sku,f.total_qty,o.order_number
+            order by f.parent_sku asc
         """
         cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
         cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -328,6 +328,9 @@ order by f.parent_sku asc
                     size=keys[2]
                 else:
                     model='Shades'
+                    corap_list=["Uzun","Orta","Patik"]
+                    if keys[0] in corap_list:
+                        model='Çorap'
                     color=keys[0]
                     size=keys[1]
 
@@ -343,8 +346,9 @@ order by f.parent_sku asc
                     temp_list[model][color][size]['oos'] = 0
                     temp_list[model][color][size]['order'] = 0
                     temp_list[model][color][size]['production'] = 0
-                    temp_list[model][color][size]['stock'] = item['total_qty']
+                    temp_list[model][color][size]['stock'] = 0
                 
+                temp_list[model][color][size]['stock'] = item['total_qty']
                 try:
                     if item['total_sales']!=None and item['order_number']!=None:
                         doi=30
