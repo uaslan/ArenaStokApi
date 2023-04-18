@@ -7,6 +7,7 @@ urlpatterns = [
     path('stocks/', Stock.as_view()),
     path('replace_stocks/', replace_stocks),
     path('add_stocks/', add_stocks),
+    path('add_min_stocks/', add_min_stocks),
     path('stock_logs/', stock_logs),
     path('all_stock_logs/', all_stock_logs)
 ]

@@ -30,11 +30,11 @@ class Stock(APIView):
             with t as(
                 select * from ag_product_parent
             )
-            select t.parent_sku,st.total_qty
+            select t.parent_sku,st.total_qty,st.min_stock
             from t
             inner join ag_products sp on sp.parent_id=t.id
             inner join ag_stock st on st.product_id=t.id
-            group by t.parent_sku,st.total_qty
+            group by t.parent_sku,st.total_qty,st.min_stock
             order by t.parent_sku;
         """
         cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
@@ -49,7 +49,8 @@ class Stock(APIView):
             row = {
                 'parent_sku': item['parent_sku'],
                 'name': str(item['parent_sku']).replace('_main','').replace('_',' '),
-                'total_qty': item['total_qty']
+                'total_qty': item['total_qty'],
+                'min_stock': item['min_stock']
             }
             stocks.append(row)
         
@@ -104,6 +105,23 @@ def db_process(product_list,type):
             cursor.execute(update_sql)
             cnxn.commit()
 
+    cursor.close()
+    cnxn.close()
+
+def update_min_stocks(product_list):
+    cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
+    cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    for row in product_list:
+        update_sql=f"""
+            UPDATE ag_stock AS ss
+            SET
+            updated_at=now(),
+            min_stock ={row['min_stock']}
+            WHERE ss.product_id = {row['product_id']};
+        """
+        cursor.execute(update_sql)
+        cnxn.commit()
     cursor.close()
     cnxn.close()
     
@@ -167,19 +185,52 @@ def add_stocks(request):
                     error+=1
             except Exception as for_error:
                 pass
-
+        
+        response_data = {
+            "success": False
+        }
         if len(product_list)>0:
             process_type='ekle'
             try:
                 db_process(product_list,process_type)
-                response_data = {
-                    "success": True
-                }
+                response_data["success"]= True
                 r1.set('update_check','true')
             except:
-                response_data = {
-                    "success": False
-                }
+                response_data["success"]= False
+        return Response(response_data, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+def add_min_stocks(request):
+    if request.method == 'POST':
+        r1Pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, decode_responses=True,password=os.getenv('redis_password'))
+        r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8",password=os.getenv('redis_password'))
+        payload = request.data
+
+        product_list=[]
+        error=0
+        for item in payload:
+            try:
+                parent_sku=None
+                parent_sku=f"{item['sku']}"
+                if parent_sku!=None:
+                    product_maps_id=r1.get(parent_sku)
+                    stock_qty=item['quantity']
+                    if stock_qty!=None and stock_qty!='':
+                        product_list.append({'product_id':product_maps_id,'min_stock':stock_qty})
+                else:
+                    error+=1
+            except Exception as for_error:
+                pass
+        
+        response_data = {
+            "success": False
+        }
+        if len(product_list)>0:
+            try:
+                update_min_stocks(product_list)
+                response_data["success"]= True
+            except:
+                response_data["success"]= True
         return Response(response_data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
