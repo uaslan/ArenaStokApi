@@ -21,3 +21,6 @@
     cd /home/mert/nftapi
     sudo git pull origin main
     sudo systemctl restart gunicorn
+
+
+gunicorn --bind 0.0.0.0:8001 core.wsgi    

@@ -210,20 +210,41 @@ def report(request):
     if request.method == 'GET':
         r1 = redis.Redis(connection_pool=r1Pool,charset="utf-8",password=os.getenv('redis_password'))
         r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8",password=os.getenv('redis_password'))
-        query = """
-            with t as(
-                select order_number,order_status,order_date,order_marketplace_id from ag_orders where order_date>now()-INTERVAL '30 day'
-            )
-            select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date
-            from t
-            inner join ag_order_products op on op.order_number=t.order_number
-            inner join ag_product_parent pp on pp.id=op.product_id
-            inner join ag_marketplaces mp on mp.id=t.order_marketplace_id
-            order by t.order_date desc
-        """
+
+        first_date = request.query_params.get('start_date', '')
+        end_date = request.query_params.get('end_date', '')
         cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
         cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cursor.execute(query)
+        if first_date=='' and end_date=='':
+            query = """
+                with t as(
+                    select order_number,order_status,order_date,order_marketplace_id from ag_orders where order_date>now()-INTERVAL '30 day'
+                )
+                select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date
+                from t
+                inner join ag_order_products op on op.order_number=t.order_number
+                inner join ag_product_parent pp on pp.id=op.product_id
+                inner join ag_marketplaces mp on mp.id=t.order_marketplace_id
+                order by t.order_date desc
+            """
+            cursor.execute(query)
+        else:
+            if end_date=='':
+                end_date='now()'
+            # if first_date=='':
+            #     first_date="now()-INTERVAL '30 day'"
+            query = """
+                with t as(
+                    select order_number,order_status,order_date,order_marketplace_id from ag_orders where order_date>=%(first_date)s and order_date<=%(end_date)s
+                )
+                select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date
+                from t
+                inner join ag_order_products op on op.order_number=t.order_number
+                inner join ag_product_parent pp on pp.id=op.product_id
+                inner join ag_marketplaces mp on mp.id=t.order_marketplace_id
+                order by t.order_date desc
+            """
+            cursor.execute(query,{'first_date':first_date,'end_date':end_date})
         query_response = cursor.fetchall()
         cursor.close()
         cnxn.close()

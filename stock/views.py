@@ -34,8 +34,9 @@ class Stock(APIView):
             from t
             inner join ag_products sp on sp.parent_id=t.id
             inner join ag_stock st on st.product_id=t.id
+            where sp.is_status=1
             group by t.parent_sku,st.total_qty,st.min_stock
-            order by t.parent_sku;
+            order by t.parent_sku
         """
         cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
         cursor =cnxn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -176,6 +177,8 @@ def add_stocks(request):
             try:
                 parent_sku=None
                 parent_sku=f"{item['sku']}"
+                if parent_sku=='White_36_main':
+                    print('')
                 if parent_sku!=None:
                     product_maps_id=r1.get(parent_sku)
                     stock_qty=item['quantity']
@@ -250,7 +253,7 @@ def stock_logs(request):
         if process_type!=None and process_type!='':
             if process_type!='all':
                 if process_type=='TYALL':
-                    where_string+=f"(process_type='order-ty' or process_type='order-ty-cancel' or process_type='TYINT') and "
+                    where_string+=f"(process_type='order-ty' or process_type='order-ty-cancel' or process_type='order-ty_int') and "
                 else:
                     where_string+=f"process_type = '{process_type}' and "
             elif (start_date==None or start_date!='') and (end_date==None and end_date!=''):
@@ -310,7 +313,7 @@ def all_stock_logs(request):
     if process_type!=None and process_type!='':
         if process_type!='all':
             if process_type=='TYALL':
-                where_string+=f"(sl.process_type='order-ty' or sl.process_type='order-ty-cancel' or sl.process_type='TYINT') and "
+                where_string+=f"(sl.process_type='order-ty' or sl.process_type='order-ty-cancel' or sl.process_type='order-ty_int') and "
             else:
                 where_string+=f"sl.process_type = '{process_type}' and "
         elif (start_date==None or start_date!='') and (end_date==None and end_date!=''):
