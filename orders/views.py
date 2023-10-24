@@ -220,7 +220,7 @@ def report(request):
                 with t as(
                     select order_number,order_status,order_date,order_marketplace_id from ag_orders where order_date>now()-INTERVAL '30 day'
                 )
-                select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date
+                select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date,pp.collection_name
                 from t
                 inner join ag_order_products op on op.order_number=t.order_number
                 inner join ag_product_parent pp on pp.id=op.product_id
@@ -235,9 +235,9 @@ def report(request):
             #     first_date="now()-INTERVAL '30 day'"
             query = """
                 with t as(
-                    select order_number,order_status,order_date,order_marketplace_id from ag_orders where order_date>=%(first_date)s and order_date<=%(end_date)s
+                    select order_number,order_status,order_date,order_marketplace_id from ag_orders where order_date>=%(first_date)s::TIMESTAMP and order_date<=%(end_date)s::TIMESTAMP + INTERVAL '1 days'
                 )
-                select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date
+                select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date,pp.collection_name
                 from t
                 inner join ag_order_products op on op.order_number=t.order_number
                 inner join ag_product_parent pp on pp.id=op.product_id
@@ -255,18 +255,32 @@ def report(request):
         for item in query_response:
             try:
                 product=str(item['parent_sku']).replace('_main','').split('_')
-                if len(product)>2:
+                if len(product)>3:
+                    collection=product[0]
+                    model=product[1]
+                    color=product[2]
+                    size=product[3]
+                elif len(product)>2:
+                    collection=product[0]
                     model=product[0]
                     color=product[1]
                     size=product[2]
                 else:
+                    collection='Shades'
                     model='Shades'
                     corap_list=["Uzun","Orta","Patik"]
                     if product[0] in corap_list:
+                        collection='Corap'
                         model=product[0]
-                    color=product[0]
-                    size=product[1]
-                
+                        color=product[1]
+                        size=product[0]
+                    else:
+                        color=product[0]
+                        size=product[1]
+
+                if item['collection_name']!=None :
+                    collection=item['collection_name']
+                    
                 start_date_str=str(item['start_date']).replace('T',' ').split(' ')[0]
                 start_date=datetime.strptime(start_date_str,"%Y-%m-%d")
 
@@ -281,6 +295,7 @@ def report(request):
                     'OrderNO': item['order_number'],
                     'OrderStatus': item['order_status'],
                     'SKU': str(item['parent_sku']).replace('_main',''),
+                    'Collection':collection,
                     'Model':model,
                     'Color':color,
                     'Size':size,
@@ -318,18 +333,18 @@ def velocity(request):
         r2 = redis.Redis(connection_pool=r2Pool,charset="utf-8",password=os.getenv('redis_password'))
         query = """
             with f as(
-                with t as(
-                    select * from ag_product_parent --where parent_sku LIKE 'Colors%'
-                )
-                select t.id p_id,t.parent_sku,s.total_qty
-                from t
-                inner join ag_stock s on s.product_id=t.id
+                    with t as(
+                            select * from ag_product_parent --where parent_sku LIKE 'MLD_%'
+                    )
+                    select t.id p_id,t.parent_sku,s.total_qty,t.collection_name
+                    from t
+                    inner join ag_stock s on s.product_id=t.id
             )
-            select f.parent_sku,f.total_qty,sum(op.order_product_qty) total_sales,o.order_number
+            select f.parent_sku,f.total_qty,sum(op.order_product_qty) total_sales,o.order_number,f.collection_name
             from f
             left join ag_order_products op ON op.product_id=f.p_id
             left join ag_orders o on o.order_number = op.order_number and o.order_date>now() - INTERVAL '30 days' and o.order_status!='Cancelled'
-            GROUP BY f.parent_sku,f.total_qty,o.order_number
+            GROUP BY f.parent_sku,f.total_qty,o.order_number,f.collection_name
             order by f.parent_sku asc
         """
         cnxn = psycopg2.connect(user=os.getenv('DATABASE_USER'),password=os.getenv('DATABASE_PASSWORD'),host=os.getenv('DATABASE_HOST'),port=os.getenv('DATABASE_PORT'),database=os.getenv('DATABASE_NAME'))
@@ -343,17 +358,31 @@ def velocity(request):
         for item in query_response:
             try:
                 keys=item['parent_sku'].replace('_main','').split('_')
-                if len(keys)>2:
+                if len(keys)>3:
+                    collection=keys[0]
+                    model=keys[1]
+                    color=keys[2]
+                    size=keys[3]
+                elif len(keys)>2:
+                    collection=keys[0]
                     model=keys[0]
                     color=keys[1]
                     size=keys[2]
                 else:
+                    collection='Shades'
                     model='Shades'
                     corap_list=["Uzun","Orta","Patik"]
                     if keys[0] in corap_list:
-                        model='Çorap'
-                    color=keys[0]
-                    size=keys[1]
+                        collection='Corap'
+                        model=keys[0]
+                        color=keys[1]
+                        size=keys[0]
+                    else:
+                        color=keys[0]
+                        size=keys[1]
+                
+                if item['collection_name']!=None:
+                    model=f"{item['collection_name']}_{model}"
 
                 if model not in temp_list:
                     temp_list[model]={}
@@ -409,5 +438,14 @@ def velocity(request):
                             report_list[model][color]['Total']['stock'] += temp_item_model[color][sort_size]['stock']
                         except:
                             pass
+        try:
+            keys = sorted(report_list.keys())
+            new_list={}
+            for key in keys:
+                new_list[key] = report_list[key]
+            return Response(new_list,status=status.HTTP_200_OK)
+        except Exception as error:
+            pass
+
 
         return Response(report_list,status=status.HTTP_200_OK)
