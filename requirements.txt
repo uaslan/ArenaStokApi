@@ -1,6 +1,6 @@
 asgiref==3.4.1
 autopep8==1.5.7
-Django==3.2.23
+Django==3.2.25
 django-cors-headers==3.10.0
 djangorestframework==3.12.4
 psycopg2-binary==2.9.1
