@@ -220,7 +220,7 @@ def report(request):
                 with t as(
                     select order_number,order_status,order_date,order_marketplace_id from ag_orders where order_date>now()-INTERVAL '30 day'
                 )
-                select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date,pp.collection_name
+                select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date,pp.collection_name,op.shipment_company,op.package_number
                 from t
                 inner join ag_order_products op on op.order_number=t.order_number
                 inner join ag_product_parent pp on pp.id=op.product_id
@@ -237,7 +237,7 @@ def report(request):
                 with t as(
                     select order_number,order_status,order_date,order_marketplace_id from ag_orders where order_date>=%(first_date)s::TIMESTAMP and order_date<=%(end_date)s::TIMESTAMP + INTERVAL '1 days'
                 )
-                select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date,pp.collection_name
+                select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date,pp.collection_name,op.shipment_company,op.package_number
                 from t
                 inner join ag_order_products op on op.order_number=t.order_number
                 inner join ag_product_parent pp on pp.id=op.product_id
@@ -265,6 +265,11 @@ def report(request):
                     model=product[0]
                     color=product[1]
                     size=product[2]
+                elif str(item['parent_sku']).find('ShopperBag')>-1:
+                    collection=product[0]
+                    model=product[1]
+                    color='No Color'
+                    size='No Size'
                 else:
                     collection='Shades'
                     model='Shades'
@@ -304,7 +309,9 @@ def report(request):
                     'OWeek':str(order_date.strftime("%W")),
                     'ODay':str(order_date.strftime("%d")),
                     'Marketplace':item['symbol'],
-                    'Quantity':item['order_product_qty']
+                    'Quantity':item['order_product_qty'],
+                    'PackageNumber':item['package_number'],
+                    'ShipCompany':item['shipment_company']
                     # 'RMonth':None,
                     # 'RWeek':None,
                     # 'RDay':None,
@@ -334,7 +341,7 @@ def velocity(request):
         query = """
             with f as(
                     with t as(
-                            select * from ag_product_parent --where parent_sku LIKE 'MLD_%'
+                        select * from ag_product_parent --where parent_sku LIKE 'Shades%'
                     )
                     select t.id p_id,t.parent_sku,s.total_qty,t.collection_name
                     from t
@@ -357,7 +364,7 @@ def velocity(request):
         temp_list={}
         for item in query_response:
             try:
-                keys=item['parent_sku'].replace('_main','').split('_')
+                keys=item['parent_sku'].replace('_main','').replace('_New','').split('_')
                 if len(keys)>3:
                     collection=keys[0]
                     model=keys[1]
@@ -368,6 +375,11 @@ def velocity(request):
                     model=keys[0]
                     color=keys[1]
                     size=keys[2]
+                elif str(item['parent_sku']).find('ShopperBag')>-1:
+                    collection=keys[0]
+                    model=keys[1]
+                    color='No Color'
+                    size='No Size'
                 else:
                     collection='Shades'
                     model='Shades'
