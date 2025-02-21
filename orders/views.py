@@ -221,10 +221,12 @@ def report(request):
                     select order_number,order_status,order_date,order_marketplace_id from ag_orders where order_date>now()-INTERVAL '30 day'
                 )
                 select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date,pp.collection_name,op.shipment_company,op.package_number
+                ,od.shippingaddress_city,od.shippingAddress_town,od.cargoCompany
                 from t
                 inner join ag_order_products op on op.order_number=t.order_number
                 inner join ag_product_parent pp on pp.id=op.product_id
                 inner join ag_marketplaces mp on mp.id=t.order_marketplace_id
+                left join ag_orders_detail od ON od.ordernumber=t.order_number
                 order by t.order_date desc
             """
             cursor.execute(query)
@@ -238,10 +240,12 @@ def report(request):
                     select order_number,order_status,order_date,order_marketplace_id from ag_orders where order_date>=%(first_date)s::TIMESTAMP and order_date<=%(end_date)s::TIMESTAMP + INTERVAL '1 days'
                 )
                 select t.order_number,t.order_status,t.order_date,mp.symbol,pp.parent_sku,op.order_product_qty,(now()-INTERVAL '15 day') start_date,pp.collection_name,op.shipment_company,op.package_number
+                ,od.shippingaddress_city,od.shippingAddress_town,od.cargoCompany
                 from t
                 inner join ag_order_products op on op.order_number=t.order_number
                 inner join ag_product_parent pp on pp.id=op.product_id
                 inner join ag_marketplaces mp on mp.id=t.order_marketplace_id
+                left join ag_orders_detail od ON od.ordernumber=t.order_number
                 order by t.order_date desc
             """
             cursor.execute(query,{'first_date':first_date,'end_date':end_date})
