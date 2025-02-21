@@ -315,7 +315,10 @@ def report(request):
                     'Marketplace':item['symbol'],
                     'Quantity':item['order_product_qty'],
                     'PackageNumber':item['package_number'],
-                    'ShipCompany':item['shipment_company']
+                    'ShipCompany':item['shipment_company'],
+                    'ShipCity':item['shippingaddress_city'],
+                    'ShipTown':item['shippingaddress_town'],
+                    'CargoCompany':item['cargocompany']
                     # 'RMonth':None,
                     # 'RWeek':None,
                     # 'RDay':None,
