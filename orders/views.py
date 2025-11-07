@@ -374,7 +374,10 @@ def velocity(request):
                 keys=item['parent_sku'].replace('_main','').replace('_New','').split('_')
                 if len(keys)>3:
                     collection=keys[0]
-                    model=keys[1]
+                    if keys[0]=='ECE' and keys[1]=='Mono':
+                        model=f"{keys[0]}_{keys[1]}"
+                    else:
+                        model=keys[1]
                     color=keys[2]
                     size=keys[3]
                 elif len(keys)>2:
